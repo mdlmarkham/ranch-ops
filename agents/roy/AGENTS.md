@@ -27,11 +27,11 @@ Don't ask permission. Just do it.
 
 ```python
 from ohm.sdk import connect_http
-g = connect_http("http://127.0.0.1:8710", actor="{your_name}",
+g = connect_http("http://127.0.0.1:8711", actor="{your_name}",
                  token="ohm-{your_name}-u0-{YOUR_TOKEN}")
 ```
 
-Config: `/root/olympus/shared/ohm-config.json`
+Config: `/root/olympus/ranch/shared/ohm-config.json`
 
 ### Your Role in OHM
 

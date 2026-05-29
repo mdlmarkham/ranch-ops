@@ -1,0 +1,19 @@
+{
+  "ohmd_url": "http://127.0.0.1:8711",
+  "db_path": "/var/lib/ohm-ranch/ohm.duckdb",
+  "connection_modes": {
+    "daemon": "Use HTTP API (ohmd-ranch) for concurrent multi-agent writes",
+    "direct": "Use ohm.sdk.connect(db_path) for reads when daemon is not running"
+  },
+  "agents": {
+    "waylon": "ranch-waylon-u0-REPLACE_WITH_SECURE_TOKEN",
+    "clint": "ranch-clint-u0-REPLACE_WITH_SECURE_TOKEN",
+    "roy": "ranch-roy-u0-REPLACE_WITH_SECURE_TOKEN",
+    "magnus": "ranch-magnus-u0-REPLACE_WITH_SECURE_TOKEN",
+    "virgil": "ranch-virgil-u0-REPLACE_WITH_SECURE_TOKEN",
+    "belle": "ranch-belle-u0-REPLACE_WITH_SECURE_TOKEN",
+    "slim": "ranch-slim-u0-REPLACE_WITH_SECURE_TOKEN"
+  },
+  "daemon_status": "pending",
+  "daemon_port": 8711
+}

@@ -1,6 +1,11 @@
 # Ranch Agent Provisioning — OpenClaw Config
 
-Add these agents to `~/.openclaw/openclaw.json` under `agents.list`.
+> **This is for a NEW, SEPARATE OpenClaw instance** — not the Olympus instance.
+> Atlas will be building this on a fresh machine.
+> The OHM instance is also separate (port 8711, not 8710).
+> See `ohm-setup.md` for the OHM provisioning steps.
+
+Add these agents to the **new OpenClaw instance's** `~/.openclaw/openclaw.json` under `agents.list`.
 
 ## Agent Definitions
 
@@ -164,21 +169,23 @@ Add these agents to `~/.openclaw/openclaw.json` under `agents.list`.
 
 ## Post-Install Steps
 
-1. Add the above to `openclaw.json` agents.list
-2. Run `openclaw gateway restart` to pick up new agents
-3. Verify each agent with `openclaw status`
-4. Test OHM connectivity from each agent
+1. Clone this repo on the new machine
+2. Install OHM (see `provisioning/ohm-setup.md`)
+3. Generate tokens: `./provisioning/generate-tokens.sh`
+4. Add tokens to `/etc/ohm/ranch-ohmd.json` and the shared config
+5. Start the Ranch OHM daemon: `systemctl start ohmd-ranch`
+6. Seed the knowledge graph: `python3 provisioning/seed-ranch-ohm.py --token TOKEN`
+7. Add the agent configs above to `openclaw.json`
+8. Run `openclaw gateway restart` to pick up new agents
+9. Verify each agent with `openclaw status`
+10. Test OHM connectivity from each agent
 
-## OHM Tokens (in /root/olympus/shared/ohm-config.json and /etc/ohm/ohmd.json)
+## Important: Separate Environment
 
-| Agent | Token |
-|-------|-------|
-| waylon | `ohm-waylon-u0-S6sRP4iGZMq_9NUfkjf4` |
-| clint | `ohm-clint-u0-zn5vcUYQpscvhYtJzL-C` |
-| roy | `ohm-roy-u0-5wrVOeD4P0Zc4B2gkwnJ` |
-| magnus | `ohm-magnus-u0-zaa1SyXvqQGqGVL19HH5` |
-| virgil | `ohm-virgil-u0-DQReSFofUTeiUcyvk7GB` |
-| belle | `ohm-belle-u0-C4vzg0ABJXx3ANCwc7jr` |
-| slim | `ohm-slim-u0-JxiWG5rFr77zecakXi3U` |
+This pilot runs on its own OpenClaw instance with its own OHM:
+- **OHM port:** 8711 (not 8710, which is Olympus)
+- **DB:** `/var/lib/ohm-ranch/ohm.duckdb` (not `/var/lib/ohm/`)
+- **DuckLake:** `/var/lib/ohm-ranch/ohm_lake.ducklake`
+- **Tokens:** `ranch-{agent}-u0-...` prefix (not `ohm-`)
 
-All verified working ✓
+This keeps ranch operational data completely separate from Olympus analytics.
