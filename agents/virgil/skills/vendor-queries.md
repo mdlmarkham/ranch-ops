@@ -1,0 +1,1 @@
+../shared/vendor-queries.md
