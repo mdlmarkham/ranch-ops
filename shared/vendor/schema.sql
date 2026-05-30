@@ -12,15 +12,25 @@ CREATE TABLE IF NOT EXISTS vendors (
     name VARCHAR(200) NOT NULL,
     short_name VARCHAR(50),                    -- "Smith Hay", "Valley Co-Op"
     vendor_type VARCHAR(50) NOT NULL,          -- feed, vet, fuel, equipment, fencing, seed, chemical, labor, other
+    -- Primary contact (backward compat; detailed contacts in vendor_contacts)
     contact_name VARCHAR(100),
     phone VARCHAR(30),
     email VARCHAR(200),
     address TEXT,
+    mailing_address TEXT,                      -- If different from physical address
     website VARCHAR(300),
     tax_id VARCHAR(50),                        -- EIN for 1099 tracking
     payment_terms VARCHAR(50),                  -- Net 30, COD, Prepay, etc.
     credit_limit DECIMAL(10,2),
     account_number VARCHAR(50),                -- Our account number with vendor
+    -- Logistics
+    delivery_radius_miles INTEGER,             -- How far they'll deliver (NULL = no delivery)
+    delivery_window VARCHAR(100),              -- "Mon-Fri 7am-3pm", "24/7 emergency"
+    min_delivery_order DECIMAL(10,2),           -- Minimum order for delivery
+    delivery_fee DECIMAL(8,2),                 -- Standard delivery charge
+    delivery_fee_free DECIMAL(10,2),            -- Free delivery above this order total
+    dock_access VARCHAR(50),                    -- "full semi", "straight truck only", "pickup only"
+    -- Status
     notes TEXT,
     status VARCHAR(20) DEFAULT 'active',       -- active, inactive, do-not-use
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -41,6 +51,77 @@ CREATE TABLE IF NOT EXISTS vendor_scorecards (
     ) STORED,
     notes TEXT,
     UNIQUE(vendor_id, score_date)
+);
+
+-- ============================================================
+-- VENDOR CONTACTS (multi-contact)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS vendor_contacts (
+    id INTEGER PRIMARY KEY,
+    vendor_id INTEGER REFERENCES vendors(id),
+    contact_name VARCHAR(100) NOT NULL,
+    role VARCHAR(50) NOT NULL,                  -- sales, dispatch, billing, tech_support, owner, after_hours, vet
+    phone VARCHAR(30),
+    mobile VARCHAR(30),
+    email VARCHAR(200),
+    is_primary BOOLEAN DEFAULT FALSE,            -- One primary per role
+    notes TEXT,                                 -- "Call before 4pm", "Prefers text"
+    UNIQUE(vendor_id, contact_name, role)
+);
+
+-- ============================================================
+-- VENDOR CAPABILITIES & SERVICES
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS vendor_capabilities (
+    id INTEGER PRIMARY KEY,
+    vendor_id INTEGER REFERENCES vendors(id),
+    capability VARCHAR(100) NOT NULL,            -- hay_delivery, bulk_fuel, emergency_vet, ai_tech, trucking, fertilizer_spreading, etc.
+    description TEXT,
+    coverage_area VARCHAR(100),                 -- "Tri-state area", "50-mile radius", "ranch call only"
+    available_seasons VARCHAR(100),              -- "year-round", "spring-fall", "calving-season"
+    equipment VARCHAR(200),                     -- "flatbed, gooseneck, semi", "portable chute, AI kit"
+    certification VARCHAR(100),                 -- "BQA certified", "AI certified", "commercial applicator"
+    notes TEXT,
+    UNIQUE(vendor_id, capability)
+);
+
+-- ============================================================
+-- VENDOR CERTIFICATIONS & INSURANCE
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS vendor_certifications (
+    id INTEGER PRIMARY KEY,
+    vendor_id INTEGER REFERENCES vendors(id),
+    cert_type VARCHAR(100) NOT NULL,            -- insurance_liability, insurance_workers_comp, BQA, veterinary_license, commercial_applicator, organic_certified, etc.
+    cert_number VARCHAR(100),
+    issuer VARCHAR(200),                        -- Who issued it
+    issued_date DATE,
+    expiry_date DATE,                           -- NULL = no expiry
+    coverage_amount DECIMAL(12,2),              -- For insurance: coverage amount
+    on_file BOOLEAN DEFAULT FALSE,              -- Do we have a copy?
+    notes TEXT,
+    UNIQUE(vendor_id, cert_type)
+);
+
+-- ============================================================
+-- WARRANTIES
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS warranties (
+    id INTEGER PRIMARY KEY,
+    product_id INTEGER REFERENCES products(id),
+    vendor_id INTEGER REFERENCES vendors(id),
+    po_id INTEGER REFERENCES purchase_orders(id),
+    warranty_type VARCHAR(50),                  -- manufacturer, extended, service, parts
+    duration_months INTEGER,
+    start_date DATE,
+    end_date DATE,
+    coverage TEXT,                               -- What's covered
+    claim_process TEXT,                          -- How to file a claim
+    contact_phone VARCHAR(30),
+    notes TEXT
 );
 
 -- ============================================================
@@ -271,3 +352,12 @@ CREATE INDEX IF NOT EXISTS idx_invoices_vendor ON invoices(vendor_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
 CREATE INDEX IF NOT EXISTS idx_invoices_due ON invoices(due_date);
 CREATE INDEX IF NOT EXISTS idx_interactions_vendor_date ON vendor_interactions(vendor_id, interaction_date);
+CREATE INDEX IF NOT EXISTS idx_vendor_contacts_vendor ON vendor_contacts(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_vendor_contacts_role ON vendor_contacts(role);
+CREATE INDEX IF NOT EXISTS idx_vendor_caps_vendor ON vendor_capabilities(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_vendor_caps_cap ON vendor_capabilities(capability);
+CREATE INDEX IF NOT EXISTS idx_vendor_certs_vendor ON vendor_certifications(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_vendor_certs_expiry ON vendor_certifications(expiry_date);
+CREATE INDEX IF NOT EXISTS idx_warranties_product ON warranties(product_id);
+CREATE INDEX IF NOT EXISTS idx_warranties_vendor ON warranties(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_warranties_end ON warranties(end_date);

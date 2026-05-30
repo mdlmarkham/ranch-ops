@@ -40,7 +40,8 @@ duckdb /var/lib/ohm-ranch/vendor.duckdb -readonly -c "SELECT * FROM vendors WHER
 
 ```sql
 -- Active vendors by category
-SELECT v.short_name, v.vendor_type, v.payment_terms, v.status
+SELECT v.short_name, v.vendor_type, v.payment_terms, v.status,
+       v.delivery_radius_miles, v.delivery_window, v.dock_access
 FROM vendors v
 WHERE v.status = 'active'
 ORDER BY v.vendor_type, v.short_name;
@@ -59,6 +60,45 @@ WHERE v.status = 'active'
       SELECT MAX(score_date) FROM vendor_scorecards WHERE vendor_id = v.id
   )
 ORDER BY vs.total_score DESC;
+
+-- Who to call for what (multi-contact directory)
+SELECT v.short_name, vc.contact_name, vc.role, vc.phone, vc.mobile, vc.email,
+       vc.is_primary, vc.notes
+FROM vendor_contacts vc
+JOIN vendors v ON v.id = vc.vendor_id
+WHERE v.status = 'active'
+ORDER BY v.short_name, vc.role, vc.is_primary DESC;
+
+-- Vendors that can deliver (and their constraints)
+SELECT v.short_name, v.vendor_type, v.delivery_radius_miles,
+       v.delivery_window, v.min_delivery_order, v.delivery_fee,
+       v.delivery_fee_free, v.dock_access
+FROM vendors v
+WHERE v.status = 'active'
+  AND v.delivery_radius_miles IS NOT NULL
+ORDER BY v.vendor_type, v.delivery_radius_miles;
+
+-- Vendor capabilities for a specific need
+SELECT v.short_name, vc.capability, vc.coverage_area, vc.available_seasons,
+       vc.equipment, vc.certification
+FROM vendor_capabilities vc
+JOIN vendors v ON v.id = vc.vendor_id
+WHERE vc.capability ILIKE '%hay%'
+  AND v.status = 'active'
+ORDER BY v.short_name;
+
+-- Vendor certifications and insurance status
+SELECT v.short_name, vcert.cert_type, vcert.cert_number, vcert.issuer,
+       vcert.expiry_date, vcert.coverage_amount, vcert.on_file,
+       CASE WHEN vcert.expiry_date IS NOT NULL AND vcert.expiry_date < CURRENT_DATE + 30
+            THEN 'EXPIRING SOON'
+            WHEN vcert.expiry_date IS NOT NULL AND vcert.expiry_date < CURRENT_DATE
+            THEN 'EXPIRED'
+            ELSE 'OK' END AS status
+FROM vendor_certifications vcert
+JOIN vendors v ON v.id = vcert.vendor_id
+WHERE v.status = 'active'
+ORDER BY vcert.expiry_date;
 
 -- Compare prices for a product across vendors
 SELECT v.short_name, vp.current_price, vp.bulk_price, vp.bulk_minimum,
@@ -344,11 +384,58 @@ def write_vendor(sql, params=None):
 
 # Examples:
 
-# Add a vendor
+# Add a vendor (with logistics)
 write_vendor("""
-    INSERT INTO vendors (name, short_name, vendor_type, contact_name, phone, email, payment_terms)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-""", ['Valley Co-Op', 'Valley', 'feed', 'Jim Peterson', '555-0142', 'jim@valleycoop.com', 'Net 30'])
+    INSERT INTO vendors (name, short_name, vendor_type, contact_name, phone, email,
+                        payment_terms, delivery_radius_miles, delivery_window,
+                        min_delivery_order, delivery_fee, delivery_fee_free, dock_access)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+""", ['Valley Co-Op', 'Valley', 'feed', 'Jim Peterson', '555-0142', 'jim@valleycoop.com',
+       'Net 30', 75, 'Mon-Fri 7am-3pm, Sat 8am-noon',
+       500.00, 45.00, 2500.00, 'full semi'])
+
+# Add vendor contacts (sales, dispatch, billing, emergency)
+write_vendor("""
+    INSERT INTO vendor_contacts (vendor_id, contact_name, role, phone, mobile, email, is_primary, notes)
+    VALUES ((SELECT id FROM vendors WHERE short_name = ?), ?, ?, ?, ?, ?, ?, ?)
+""", ['Valley', 'Jim Peterson', 'sales', '555-0142', '555-0143', 'jim@valleycoop.com', True, 'Main rep, call before 4pm'])
+
+write_vendor("""
+    INSERT INTO vendor_contacts (vendor_id, contact_name, role, phone, mobile, email, is_primary, notes)
+    VALUES ((SELECT id FROM vendors WHERE short_name = ?), ?, ?, ?, ?, ?, ?, ?)
+""", ['Valley', 'Dispatch Desk', 'dispatch', '555-0144', NULL, 'dispatch@valleycoop.com', True, 'For delivery scheduling'])
+
+write_vendor("""
+    INSERT INTO vendor_contacts (vendor_id, contact_name, role, phone, mobile, email, is_primary, notes)
+    VALUES ((SELECT id FROM vendors WHERE short_name = ?), ?, ?, ?, ?, ?, ?, ?)
+""", ['Valley', 'Accounts Receivable', 'billing', '555-0145', NULL, 'ar@valleycoop.com', True, 'For invoice disputes'])
+
+write_vendor("""
+    INSERT INTO vendor_contacts (vendor_id, contact_name, role, phone, mobile, email, is_primary)
+    VALUES ((SELECT id FROM vendors WHERE short_name = ?), ?, ?, ?, ?, ?, ?, ?)
+""", ['Valley', 'After Hours Emergency', 'after_hours', '555-0199', '555-0199', NULL, True])
+
+# Add vendor capabilities
+write_vendor("""
+    INSERT INTO vendor_capabilities (vendor_id, capability, coverage_area, available_seasons, equipment, certification)
+    VALUES ((SELECT id FROM vendors WHERE short_name = ?), ?, ?, ?, ?, ?)
+""", ['Valley', 'hay_delivery', 'Tri-state, 75-mile radius', 'year-round', 'flatbed, gooseneck', 'BQA certified'])
+
+write_vendor("""
+    INSERT INTO vendor_capabilities (vendor_id, capability, coverage_area, available_seasons, equipment, certification)
+    VALUES ((SELECT id FROM vendors WHERE short_name = ?), ?, ?, ?, ?, ?)
+""", ['Valley', 'bulk_fuel', 'On-site delivery', 'year-round', 'tanker truck', 'commercial fuel handler'])
+
+# Add vendor certifications and insurance
+write_vendor("""
+    INSERT INTO vendor_certifications (vendor_id, cert_type, cert_number, issuer, expiry_date, coverage_amount, on_file)
+    VALUES ((SELECT id FROM vendors WHERE short_name = ?), ?, ?, ?, ?, ?, ?)
+""", ['Valley', 'insurance_liability', 'GL-2026-44821', 'Farm Bureau Insurance', '2027-03-15', 2000000.00, True])
+
+write_vendor("""
+    INSERT INTO vendor_certifications (vendor_id, cert_type, cert_number, issuer, expiry_date, on_file)
+    VALUES ((SELECT id FROM vendors WHERE short_name = ?), ?, ?, ?, ?, ?, ?)
+""", ['Valley', 'BQA', 'BQA-12345', 'National Cattlemen\'s Beef Assoc.', '2028-01-01', True])
 
 # Record a price quote
 write_vendor("""
@@ -401,7 +488,10 @@ g.observe(node_id="concept-ranch-finance", ...)       # Cost trends
 
 | Table | What It Holds | Key Fields |
 |-------|---------------|------------|
-| `vendors` | Who you buy from | name, type, contact, payment_terms, status |
+| `vendors` | Who you buy from | name, type, contact, payment_terms, delivery_radius, dock_access |
+| `vendor_contacts` | Multi-contact per vendor | contact_name, role, phone, mobile, email, is_primary |
+| `vendor_capabilities` | What vendors can do | capability, coverage_area, seasons, equipment, certification |
+| `vendor_certifications` | Insurance, licenses, certs | cert_type, issuer, expiry_date, coverage_amount, on_file |
 | `vendor_scorecards` | Vendor quality ratings | price, reliability, quality, relationship (1-5 each) |
 | `products` | What you buy | name, category, unit, lead_time, shelf_life |
 | `vendor_products` | Vendor-specific SKUs/prices | vendor_id + product_id, current_price, bulk_price |
@@ -414,6 +504,7 @@ g.observe(node_id="concept-ranch-finance", ...)       # Cost trends
 | `delivery_items` | Received items | product, quantities accepted/rejected, lot#, expiry |
 | `invoices` | Vendor invoices | invoice_number, vendor, dates, amounts, status |
 | `vendor_interactions` | Call logs, visits, issues | date, type, subject, follow_up |
+| `warranties` | Product warranties | product, vendor, type, duration, coverage, claim process |
 
 Full schema: `shared/vendor/schema.sql`
 Architecture: `shared/herd-tracking-architecture.md`
