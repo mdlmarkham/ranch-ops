@@ -1,0 +1,78 @@
+# Ranch Configuration Template
+# Copy to shared/ranch-config.yaml and customize for your operation
+
+# === Ranch Identity ===
+ranch_name: "Default Ranch"
+ranch_location:
+  lat: XX.XXXX
+  lon: -YY.YYYY
+  county_fips: "XXXXX"  # For NWS alerts
+  state: "XX"
+  region: "Local Market Area"
+
+# === Herd ===
+default_herd_size: 250  # Brood cows
+breeding_season_start: "June 1"
+calving_season_start: "March 1"
+weaning_target: "October 15"
+
+# === Pastures ===
+pasture_sections:
+  - id: "section-1"
+    name: "North Pasture"
+    acres: 160
+    forage_type: "mixed native"
+  - id: "section-2"
+    name: "South Pasture"
+    acres: 200
+    forage_type: "bermuda"
+  - id: "section-3"
+    name: "East Pasture"
+    acres: 180
+    forage_type: "alfalfa mix"
+  - id: "section-4"
+    name: "West Pasture"
+    acres: 140
+    forage_type: "native range"
+  - id: "section-5"
+    name: "Creek Bottom"
+    acres: 220
+    forage_type: "mixed native with creek access"
+
+# === Financial Targets ===
+target_cost_per_cow: 900      # Annual
+breakeven_calf_price: 155.00  # $/cwt
+max_feed_cost_pct: 0.65       # 65% of total
+min_cash_reserve_days: 30     # Days of expenses
+
+# === Alert Thresholds ===
+weather:
+  heat_alert_f: 95            # °F for heat stress
+  freeze_alert_f: 10          # °F for calf risk
+  rain_alert_in: 2.0          # Inches in 24hr
+  wind_alert_mph: 30          # MPH for equipment/fence risk
+
+livestock:
+  bcs_min: 4.0                # Below this = supplemental feed
+  bcs_target: 5.5             # Target average
+  calf_loss_max_pct: 5.0      # Alert threshold
+  conception_min_pct: 85.0    # Alert threshold
+
+inventory:
+  hay_days_min: 60            # Reorder at 60 days
+  fuel_capacity_pct: 50      # Reorder at 50%
+  vet_supply_days_min: 14    # Reorder at 14 days
+
+# === Vendor Defaults ===
+vendors:
+  primary_coop: "Local Co-Op Name"
+  fuel_supplier: "Cardlock / Bulk Supplier"
+  vet_clinic: "Veterinary Clinic Name"
+
+# === OHM Connection ===
+ohm:
+  host: "http://127.0.0.1:8711"
+  tokens_file: "shared/ohm-config.json"
+
+# === Data Sources ===
+searxng_host: "192.168.70.101:8083"  # Or your local SearXNG instance
